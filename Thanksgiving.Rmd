@@ -1,0 +1,268 @@
+---
+title: "STAT184 Final Project"
+author: "Jongyoon Sohn"
+date: "December 09, 2016"
+output:
+  html_document:
+    fig_height: 6
+    fig_width: 10
+    toc: yes
+---
+
+```{r include=FALSE}
+library(DataComputing)
+```
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+
+# Purpose of project
+It is widely known that Americans celebrate Thanksgiving Day since 1941 when President Franklin D. Roosevelt proposed and it was approved by the Congress. However, I started to think that not every american celebrates this day no matter what reasons they have and if they do, how they would spend the holiday.
+In this project, I asked myself a couple of questions that can be answered/obtained based on the data set in order to make its structure neat and show what decisions can be made.
+
+```{r}
+#reading the data set from the corresponding website
+Thanksgiving<-mosaic::read.file("https://raw.githubusercontent.com/fivethirtyeight/data/master/thanksgiving-2015/thanksgiving-2015-poll-data.csv")
+```
+
+Before doing something, the names of columns are too long and complicated to understand so I will modify column names of data using names() function.
+```{r}
+#assign desired column names into a dummy value
+Name<-c("ID","Celebrate","Main_dish","Main_dish(other)","Cooking_method","Cooking_method(other)","Stuffing","Stuffing(other)","Cranberry","Cranberry(other)","Gravy","SideDish1","SideDish2","SideDish3","SideDish4","SideDish5","SideDish6","SideDish7","SideDish8","SideDish9","SideDish10","SideDish11","SideDish12","SideDish13","SideDish(other1)","SideDish(other2)","Pie1","Pie2","Pie3","Pie4","Pie5","Pie6","Pie7","Pie8","Pie9","Pie10","Pie11","Pie(other1)","Pie(other2)","Dissert1","Dissert2","Dissert3","Dissert4","Dissert5","Dissert6","Dissert7","Dissert8","Dissert9","Dissert10","Dissert(other1)","Dissert(other2)","Pray","Travel","Program","Agecutoff","With_friends","Friendsgiving","BlackFriday","WorkRetail","WorkBF","Place","Age","Gender","Income","USRegion")
+names(Thanksgiving)<-Name
+```
+
+In the result, short and representative column names are assigned into the original data set so that it would help readers read and understand the code being used much easier.
+
+***
+
+# Analysis 01
+
+How many people among respondents for this survey celebrate Thanksgiving?
+```{r}
+Thanksgiving %>%
+  group_by(Celebrate) %>%
+  summarise(count=n())  #count the number of No's and Yes's
+```
+Out of 1058 respondent people, 980 people celebrate Thanksgiving Day and 78 people do not. In fact, more than $\frac{980}{1058} = 92\%$ of people celebrate Thanksgiving.
+
+***
+
+# Analysis 02
+
+Then, now how do they enjoy the day? What kind of food would be on the dinner table?
+In order to find out, I first need the information from those who celebrate the holiday. Otherwise, it would make no sense. So I created the Celebrating dataset that exclude rows in which people don't celebrate Thanksgiving. Then the Celebrating dataset has been sorted by main dishes and plotted into a histogram.
+```{r}
+#filter Yes's only
+Celebrating <- Thanksgiving %>%
+  filter(Celebrate=="Yes")
+#Main dish preference
+Celebrating %>%
+  group_by(Main_dish) %>%
+  summarise(count=n()) %>%
+  filter(Main_dish!="") %>% #ignore non-responses
+  arrange(desc(count)) %>%
+  mutate(Main_dish=reorder(Main_dish,desc(count))) %>%
+  ggplot(aes(x=Main_dish,y=count)) +
+  geom_bar(stat="identity") +
+  theme(axis.text.x=element_text(angle=30,hjust=1)) + #tilt the names of values to stop from overlap
+  xlab("Main dishes")
+```
+
+```{r}
+Celebrating %>%
+  filter(Main_dish=="Turkey") %>%
+  summarise(count=n())
+```
+
+According to the histogram, the majority of people who celebrate Thanksgiving have turkeys as the main dish with which $\frac{859}{980} = 87.65\%$ of those people argree. I don't doubt why Thanksgiving has been called 'Turkey Day'.
+
+***
+
+# Analysis 03
+
+A lot of people celebrate Thankgiving and they have fun with their families/friends on the same day. I can't imagine what the traffic would be like on the holiday. So this triggers a question that how many people would travel for Thanksgiving?
+```{r}
+Celebrating %>%
+  group_by(Travel) %>%
+  summarise(count=n()) %>%
+  filter(Travel!="") %>% #ignore non-responses
+  arrange(desc(count)) #descending order by count
+```
+It seems that more than $80\%$ of people would stay at home or travel a little to celebrate Thanksgiving. Now, I'm wondering if your age and where you live would affect whether or not you are willing to travel for Thanksgiving.
+```{r}
+Celebrating %>%
+  filter(Place!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  group_by(Place,Travel) %>% #see the # of people who are in each combination of Place&Travel
+  summarise(count=n())
+```
+
+In this table, you can see that how many people are travel or not depending on their living places. However, it is not easy to figure out which group of people(Place) would be more likely to travel given the table above. So histograms have been introduced to compare people consisting of each combination of Place and Travel.
+
+```{r}
+Celebrating %>%
+  filter(Place!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  ggplot(aes(x=Place,fill=Travel)) +
+  geom_bar() +
+  xlab("Where you live")
+```
+```{r}
+Celebrating %>%
+  filter(Place!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  ggplot(aes(x=Place)) +
+  geom_bar() +
+  facet_wrap(~Travel) +
+  xlab("Where you live")
+```
+```{r}
+Celebrating %>%
+  filter(Place!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  ggplot(aes(x=Place, fill=Travel)) +
+  geom_bar(position="dodge") +
+  xlab("Where you live")
+```
+
+Three different plots have been created using the same information but in different ways and I think that the plot in the last can be easily interpreted to compare the frequency of people who are traveling from each case of living places. For instance, urban people are likely to have Thanksgiving at home or somewhere in local with approximately equal percentages but the percentage of rural people who have Thanksgiving at home is about twice of the percentage of rural people who have Thanksgiving in local.
+
+***
+
+# Analysis 04
+
+In the previous question, I looked at the frequencies of traveling depending on where you live. But, it made me think of another possibility that the age would be another factor that influences the decision whether you travel for Thanksgiving. Maybe, the older you get, the much eagerly you are to stay. So, a similar method is used here to the same plots.
+```{r}
+Celebrating %>%
+  filter(Age!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  ggplot(aes(x=Age)) +
+  geom_bar() +
+  facet_wrap(~Travel)
+```
+```{r}
+Celebrating %>%
+  filter(Age!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  ggplot(aes(x=Age, fill=Travel)) +
+  geom_bar(position="dodge")
+```
+
+```{r}
+Celebrating %>%
+  filter(Age!="") %>% #ignore non-responses
+  filter(Travel!="") %>% #ignore non-responses
+  group_by(Age,Travel) %>% #see the # of people who are in each combination of Age&Travel
+  summarise(count=n())
+```
+
+As expected, those plots explain that as you get older than 45, you are more likely to stay at home compared to younger people less than 29. Statistically, $\frac{59}{185} = 31.9\%$ people of 18-29, $\frac{90}{235} = 38.3\%$ people of 30-44, $\frac{122}{258} = 45.4\%$ people of 45-59, and $\frac{123}{258} = 47.7\%$ people of 60+ groups stay at home for Thanksgiving. Note that it might result from a confounding variable so that young people are less likely to have their own homes and they prefer spending with their friends outside their homes. However, this particular data set approves the results of frequencies.
+
+***
+
+# Analysis 05
+
+What is the favorite side dishes for respondents' states?
+First, I need to see how many different regions consist of the poll by using the group_by().
+```{r}
+Celebrating %>%
+  filter(USRegion!="") %>% #ignore non-responses
+  group_by(USRegion) %>%
+  summarise(count=n())
+```
+
+There are 931 people who answer among the sample(excluding non exsistent entries) and the distribution of population looks like this.
+```{r}
+Celebrating %>%
+  group_by(USRegion) %>%
+  summarise(count=n()) %>%
+  filter(USRegion!="") %>% #ignore non-responses
+  arrange(desc(count)) %>%
+  mutate(USRegion=reorder(USRegion,desc(count))) %>%
+  ggplot(aes(x=USRegion,y=count)) +
+  geom_bar(stat="identity") +
+  theme(axis.text.x=element_text(angle=30,hjust=1)) #tilt the names of values to stop from overlap
+```
+
+As an example, South Atlantic is selected to see how many people are enjoying which side dishes. Since I wanted to create a new table that has variables of side dishes and count and the respondents had multiple answers for each side dish, I should follow these steps.
+
+```{r}
+a1<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish1) %>%
+  summarise(count=n())
+names(a1)<-c("SideDish","Count")
+a2<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish2) %>%
+  summarise(count=n())
+names(a2)<-c("SideDish","Count")
+a3<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish3) %>%
+  summarise(count=n())
+names(a3)<-c("SideDish","Count")
+a4<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish4) %>%
+  summarise(count=n())
+names(a4)<-c("SideDish","Count")
+a5<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish5) %>%
+  summarise(count=n())
+names(a5)<-c("SideDish","Count")
+a6<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish6) %>%
+  summarise(count=n())
+names(a6)<-c("SideDish","Count")
+a7<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish7) %>%
+  summarise(count=n())
+names(a7)<-c("SideDish","Count")
+a8<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish8) %>%
+  summarise(count=n())
+names(a8)<-c("SideDish","Count")
+a9<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish9) %>%
+  summarise(count=n())
+names(a9)<-c("SideDish","Count")
+a10<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish10) %>%
+  summarise(count=n())
+names(a10)<-c("SideDish","Count")
+a11<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish11) %>%
+  summarise(count=n())
+names(a11)<-c("SideDish","Count")
+a12<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish12) %>%
+  summarise(count=n())
+names(a12)<-c("SideDish","Count")
+a13<-Celebrating %>%
+  filter(USRegion == "South Atlantic") %>%
+  group_by(SideDish13) %>%
+  summarise(count=n())
+names(a13)<-c("SideDish","Count")
+a<-rbind(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13)
+a %>%
+  filter(SideDish!="") %>%
+  arrange(desc(Count))
+```
+
+In each step, I created a new table that has a corresponding side dish with the count and combine all of the tables from steps that have been made the same way in order to show their side foods preferences.
+Most people living in the South Atlantic region love to eat Rolls/biscuits, Mashed potatoes, Green beans, and Yams/casserole than other sides. Now, you are able to figure out local people's favorite sides in the same way for each region.
+
+***
+
+# Wrapping up
+This project is presenting people's overall preferences about Thanksgiving such as likelihood of celebrating, traveling and their favorite Thanksgiving foods. I chose this subject because I wanted to learn more about American culture and how people spend one of holidays in America. Great chance of taking a look at their culture and new findings from a solid data set.

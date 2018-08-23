@@ -1,0 +1,190 @@
+---
+title: "Dendrite"
+author: "Jongyoon Sohn"
+date: "6/6/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(diptest)
+library(kdensity)
+library(ggplot2)
+library(DataComputing)
+library(data.table)
+library(invgamma)
+```
+
+```{r}
+dat1<-read.csv("diameter.csv")
+wt<-dat1$Regeneration.Diameter[dat1$Genotype=="wt"]
+ror<-dat1$Regeneration.Diameter[dat1$Genotype=="RorD26"]
+```
+```{r}
+hist(wt,breaks=30,prob=T,xlab="Diameters",main="Regeneration Diameters of Wild type",cex.main=1.5,cex.lab=1.5)
+hist(ror,breaks=30,prob=T,xlab="Diameters",main="Regeneration Diameters of Ror",cex.main=1.5,cex.lab=1.5)
+```
+```{r}
+summary(wt)
+summary(ror)
+```
+
+```{r}
+ks.test(wt,ror)
+```
+
+=> They are drawn from different distributions.
+
+
+```{r}
+dip.test(ror)
+```
+
+=> This test implies that the ror has at least two modes in its distribution.
+
+```{r}
+set.seed(581)
+n<-34
+K<-200
+m<-512
+grid<-seq(0,350,length=m)
+fhat_mat<-matrix(nrow=K,ncol=m)
+for(k in 1:K){
+  X_sub<-sample(ror,size=n,replace=TRUE)
+  fhat_sub<-density(X_sub,from=0,to=350)
+  fhat_mat[k,]<-fhat_sub$y
+}
+fhat<-colMeans(fhat_mat)
+cov_est<-cov(fhat_mat)
+sd_est<-sqrt(diag(cov_est))
+low<-fhat-2*sd_est
+high<-fhat+2*sd_est
+hist(ror,prob=T,breaks=30,xlab="Diameters",main="Regeneration Diameters of Ror",cex.main=1.5,cex.lab=1.5)
+matplot(grid,t(fhat_mat),type="l",col="grey",add=T)
+points(grid,fhat,type="l")
+points(grid,low,type="l",lty=2)
+points(grid,high,type="l",lty=2)
+```
+
+=> Kernel densities imply that its distribution is bimodal.
+
+```{r}
+set.seed(581)
+wt<-dat1$Regeneration.Diameter[dat1$Genotype=="wt"]
+ror<-dat1$Regeneration.Diameter[dat1$Genotype=="RorD26"]
+clst<-kmeans(ror,centers=2)
+ror<-data.table(ror)
+ror<-cbind(ror,clst$cluster)
+colnames(ror)<-c("diameter","cluster")
+ror$cluster[which(ror$cluster==1)]<-"ror"
+ror$cluster[which(ror$cluster==2)]<-"wt"
+clstmean<-ror%>%
+  group_by(cluster)%>%
+  summarise(avg=mean(diameter))
+ggplot(ror,aes(x=diameter,fill=cluster))+
+  geom_histogram(aes(y=..density..),position="dodge")+
+  geom_vline(data=clstmean,aes(xintercept=avg,color=cluster),linetype="dashed",size=.5)+
+  geom_density(alpha=.4)
+```
+
+
+
+
+```{r}
+n<-length(wt)
+#Inversegamma prior for variance:
+prior_var_mean<-70^2
+prior_var_var<-100
+alpha0<-2+prior_var_mean^2/prior_var_var
+beta0<-prior_var_mean*(alpha0-1)
+# Normal Prior for mean, given variance
+mu0<-250
+n0<-1
+# Posterior
+n_post<-n+n0
+mu0_post<-(n/n_post)*mean(wt) + (n0/n_post)*mu0
+alpha_post<-alpha0+(1/2)*n
+beta_post<-beta0 + (1/2)*sum((wt-mean(wt))^2)+(n*n0/(2*n_post))*(mean(wt)-mu0)^2
+
+MC_draws<-100000
+sig2_post_draws<-1/rgamma(MC_draws,shape=alpha_post,scale=1/beta_post)
+mu_post_draws<-rnorm(MC_draws,mean=mu0_post,sd=sqrt(sig2_post_draws/n_post))
+hist(sig2_post_draws)
+abline(v=var(wt),col="red")
+hist(mu_post_draws)
+abline(v=mean(wt),col="red")
+```
+
+```{r}
+n<-length(wt)
+mu_true<-mean(mu_post_draws)
+#sig_true<-
+
+beta_prior<-mu_true*3
+alpha_prior<-4
+mu_prior<-beta_prior/(alpha_prior-1)
+sig_prior<-sqrt((beta_prior^2)/(((alpha_prior-1)^2)*(alpha_prior-2)))
+#X<-rnorm(n,mean=mu_true,sd=sig_true)
+
+beta_post<-beta_prior+0.5*sum((wt-mu_prior)^2)
+alpha_post<-(alpha_prior+n/2)
+mu_post<-beta_post/(alpha_post-1)
+sig_post<-sqrt((beta_post^2)/(((alpha_post-1)^2)*(alpha_post-2)))
+CI_low<-qinvgamma(0.025, shape = alpha_post, rate = beta_post)
+CI_high<-qinvgamma(0.975, shape = alpha_post, rate = beta_post)
+curve(dinvgamma(x, shape = alpha_post, rate = beta_post),from=CI_low,to=CI_high,xlab="Var")
+abline(v=c(CI_low,CI_high),col="red",lty=2)
+abline(v=mu_post,col="red")
+abline(v=var(wt),col="blue")
+#abline(v=sig_true^2)
+```
+
+```{r}
+ref_wt<-density(wt,from=0)
+#sum(ref_wt$y)
+#sum(dnorm(ref_wt$x,mean=mean(mu_post_draws),sd=70))
+sum(dnorm(ref_wt$x,mean=mean(mu_post_draws),sd=sqrt(mu_post)))
+est_wt<-dnorm(ref_wt$x,mean=mean(mu_post_draws),sd=sqrt(mu_post))
+
+#plot(ref_wt)
+#curve(dnorm(x,mean=mean(mu_post_draws),sd=70),from=0,to=500,add=T)
+plot(ref_wt)
+curve(dnorm(x,mean=mean(mu_post_draws),sd=sqrt(mu_post)),from=0,to=500,add=T,lty=2)
+
+sum(ref_wt$y[which(ref_wt$y<=est_wt)],est_wt[which(est_wt<=ref_wt$y)])/sum(ref_wt$y[which(ref_wt$y>est_wt)],est_wt[which(est_wt>ref_wt$y)])
+```
+
+```{r}
+curve(dnorm(x,mean=mean(mu_post_draws),sd=sqrt(mu_post)),from=0,to=500)
+CI_low_ref<-qnorm(0.025,mean=mean(mu_post_draws),sd=sqrt(mu_post))
+CI_high_ref<-qnorm(0.975,mean=mean(mu_post_draws),sd=sqrt(mu_post))
+abline(v=c(CI_low_ref,CI_high_ref),col="grey",lty=2)
+abline(v=mean(mu_post_draws))
+
+```
+
+```{r}
+set.seed(581)
+ror<-dat1$Regeneration.Diameter[dat1$Genotype=="RorD26"]
+ror<-data.table(ror)
+cls<-rep("wt",dim(ror)[1])
+ror<-cbind(ror,cls)
+colnames(ror)<-c("diameter","cluster")
+ror$cluster[which(ror$diameter<=98.45)]<-"ror"
+clstmean<-ror%>%
+  group_by(cluster)%>%
+  summarise(avg=mean(diameter))
+ggplot(ror,aes(x=diameter,fill=cluster))+
+  geom_histogram(aes(y=..density..),position="dodge")+
+  geom_vline(data=clstmean,aes(xintercept=avg,color=cluster),linetype="dashed",size=.5)+
+  geom_density(alpha=.4)
+```
+
+
+
+
+
+

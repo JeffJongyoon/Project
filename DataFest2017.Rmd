@@ -1,0 +1,300 @@
+---
+title: "DataFest2017"
+author: "Jongyoon Sohn"
+date: "3/31/2017"
+output: pdf_document
+---
+
+
+
+```{r include=FALSE}
+library(DataComputing)
+library(data.table)
+library(lubridate)
+library(gridExtra)
+library(SDMTools)
+library(leaflet)
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Analysis 01
+```{r}
+Data<-fread("data.txt")
+Data<-Data[sample(1:nrow(Data), 100000, replace = FALSE)]
+Dest<-fread("dest.txt")
+```
+```{r}
+Single_busi<-Data %>%
+  mutate(date_diff=as.Date(as.character(srch_co),format="%Y-%m-%d")-
+           as.Date(as.character(srch_ci),format="%Y-%m-%d")) %>%
+  filter(date_diff==1,srch_children_cnt==0,srch_adults_cnt==srch_rm_cnt)
+Family_trip<-Data %>%
+  mutate(date_diff=as.Date(as.character(srch_co),format="%Y-%m-%d")-
+           as.Date(as.character(srch_ci),format="%Y-%m-%d")) %>%
+  filter(date_diff>=5,srch_children_cnt>0,srch_adults_cnt>0)
+```
+```{r}
+a<-Single_busi %>%
+  group_by(popularity_band) %>%
+  summarise(count=n()) %>%
+  filter(popularity_band!="") %>%
+  ggplot(aes(x=popularity_band,y=count/nrow(Single_busi)*100)) +
+  geom_bar(fill="#9999CC",stat="identity") +
+  scale_x_discrete(limits=c("VL","L","M","H","VH")) +
+  ylim(0,45) +
+  xlab("Relative popularity value") +
+  ylab("Percent(%)")
+b<-Family_trip %>%
+  group_by(popularity_band) %>%
+  summarise(count=n()) %>%
+  filter(popularity_band!="") %>%
+  ggplot(aes(x=popularity_band,y=count/nrow(Family_trip)*100)) +
+  geom_bar(fill="#9999CC",stat="identity") +
+  scale_x_discrete(limits=c("VL","L","M","H","VH")) +
+  ylim(0,45) +
+  xlab("Relative popularity value") +
+  ylab("Percent(%)")
+grid.arrange(a,b,ncol=2)
+```
+```{r}
+c<-Single_busi%>%
+  group_by(hist_price_band) %>%
+  summarise(count=n()) %>%
+  filter(hist_price_band!="") %>%
+  ggplot(aes(x=hist_price_band,y=count/nrow(Single_busi)*100)) +
+  geom_bar(fill="#9999CC",stat="identity") +
+  scale_x_discrete(limits=c("VL","L","M","H","VH")) +
+  ylim(0,45) +
+  xlab("Relative price value") +
+  ylab("Percent(%)")
+d<-Family_trip%>%
+  group_by(hist_price_band) %>%
+  summarise(count=n()) %>%
+  filter(hist_price_band!="") %>%
+  ggplot(aes(x=hist_price_band,y=count/nrow(Family_trip)*100)) +
+  geom_bar(fill="#9999CC",stat="identity") +
+  scale_x_discrete(limits=c("VL","L","M","H","VH")) +
+  ylim(0,45) +
+  xlab("Relative price value") +
+  ylab("Percent(%)")
+grid.arrange(c,d,ncol=2)
+```
+```{r}
+e<-Single_busi%>%
+  group_by(distance_band) %>%
+  summarise(count=n()) %>%
+  filter(distance_band!="") %>%
+  ggplot(aes(x=distance_band,y=count/nrow(Single_busi)*100)) +
+  geom_bar(fill="#9999CC",stat="identity") +
+  scale_x_discrete(limits=c("VC","C","M","F","VF")) +
+  ylim(0,45) +
+  xlab("Relative distance value") +
+  ylab("Percent(%)")
+f<-Family_trip%>%
+  group_by(distance_band) %>%
+  summarise(count=n()) %>%
+  filter(distance_band!="") %>%
+  ggplot(aes(x=distance_band,y=count/nrow(Family_trip)*100)) +
+  geom_bar(fill="#9999CC",stat="identity") +
+  scale_x_discrete(limits=c("VC","C","M","F","VF")) +
+  ylim(0,45) +
+  xlab("Relative distance value") +
+  ylab("Percent(%)")
+grid.arrange(e,f,ncol=2)
+```
+
+#Analysis 2
+```{r}
+g<-Data %>%
+  mutate(mon1=ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==1,1,
+                     ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==2,2,
+                            ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==3,3,
+                                   ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==4,4,
+                                          ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==5,5,
+                                                 ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==6,6, ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==7,7,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==8,8,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==9,9,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==10,10,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==11,11,12)))))))))))) %>%
+  mutate(mon2=ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==1,1,
+                     ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==2,2,
+                            ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==3,3,
+                                   ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==4,4,
+                                          ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==5,5,
+                                                 ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==6,6, ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==7,7,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==8,8,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==9,9,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==10,10,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==11,11,12)))))))))))) %>%
+  mutate(mon=round((mon1+mon2)/2)) %>%
+  group_by(mon) %>%
+  summarise(clicks=sum(cnt)) %>%
+  filter(mon<=12.0) %>%
+  ggplot(aes(x=mon,y=clicks)) +
+  geom_line(aes(colour="#009E73")) +
+  geom_point(aes(colour="#009E73"),size=3) +
+  xlim(0,12.5)
+
+h<-Data %>%
+  mutate(mon1=ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==1,1,
+                     ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==2,2,
+                            ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==3,3,
+                                   ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==4,4,
+                                          ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==5,5,
+                                                 ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==6,6, ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==7,7,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==8,8,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==9,9,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==10,10,ifelse(month(as.POSIXlt(srch_ci,format="%Y-%m-%d"))==11,11,12)))))))))))) %>%
+  mutate(mon2=ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==1,1,
+                     ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==2,2,
+                            ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==3,3,
+                                   ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==4,4,
+                                          ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==5,5,
+                                                 ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==6,6, ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==7,7,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==8,8,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==9,9,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==10,10,ifelse(month(as.POSIXlt(srch_co,format="%Y-%m-%d"))==11,11,12)))))))))))) %>%
+  mutate(mon=round((mon1+mon2)/2)) %>%
+  group_by(mon) %>%
+  summarise(booking=sum(is_booking)) %>%
+  filter(mon<=12.0) %>%
+  ggplot(aes(x=mon,y=booking)) +
+  geom_line(aes(colour="#009E73")) +
+  geom_point(aes(colour="#009E73"),size=3) +
+  xlim(0,12.5)
+grid.arrange(g,h,ncol=1)
+```
+
+```{r}
+ts<-Data %>%
+  group_by(srch_ci) %>%
+  summarise(booking=sum(is_booking))
+ts1<-ts[1:365,]
+ts2<-ts[366:nrow(ts),]
+ts2<-ts2 %>%
+  filter(srch_ci!="NULL")
+ts1<-ts1[,2]
+ts2<-ts2[,2]
+tots<-rbind(ts1,ts2)
+tots<-as.matrix(tots)
+plot.ts(diff(tots))
+plot.ts(ts1)
+acf(diff(ts1))
+acf(diff(diff(ts1),7),40)
+pacf(diff(diff(ts1),7),40)
+fit1
+tsdiag(fit1$fit)
+qqnorm(residuals(fit1$fit))
+```
+
+
+
+
+```{r}
+g1<-Data %>%
+  mutate(mon=month(as.POSIXlt(date_time,format="%Y-%m-%d %H:%M:%S"))) %>%
+  group_by(mon) %>%
+  summarise(clicks=sum(cnt)) %>%
+  ggplot(aes(x=mon,y=clicks)) +
+  geom_line(aes(colour="#009E73")) +
+  geom_point(aes(colour="#009E73"),size=3) +
+  xlim(0,12.5)
+
+h1<-Data %>%
+  mutate(mon=month(as.POSIXlt(date_time,format="%Y-%m-%d %H:%M:%S"))) %>%
+  group_by(mon) %>%
+  summarise(booking=sum(is_booking)) %>%
+  ggplot(aes(x=mon,y=booking)) +
+  geom_line(aes(colour="#009E73")) +
+  geom_point(aes(colour="#009E73"),size=3) +
+  xlim(0,12.5)
+
+##plotting two graphs
+grid.arrange(g1,h1,ncol=1)
+```
+```{r}
+##mean, sd of booking
+Data %>%
+  mutate(mon=month(as.POSIXlt(date_time,format="%Y-%m-%d %H:%M:%S"))) %>%
+  group_by(mon) %>%
+  summarise(total=sum(is_booking)) %>%
+  summarise(ave=mean(total))
+Data %>%
+  mutate(mon=month(as.POSIXlt(date_time,format="%Y-%m-%d %H:%M:%S"))) %>%
+  group_by(mon) %>%
+  summarise(total=sum(is_booking))# %>%
+  #summarise(stand=sd(is_booking))
+```
+```{r}
+##mean, sd of date_diff
+Data %>%
+  mutate(date_diff=as.Date(as.character(srch_co),format="%Y-%m-%d")-
+           as.Date(as.character(srch_ci),format="%Y-%m-%d")) %>%
+  group_by(date_diff) %>%
+  filter(date_diff>0) %>%
+  summarise(count=n()) %>%
+  summarise(stn=wt.sd(as.numeric(date_diff),count))
+# summarise(ave=wt.mean(as.numeric(date_diff),count))
+```
+```{r}
+##2X2 Cross-tabulation
+test<-Data %>%
+  select(hotel_country,srch_destination_id,user_id,srch_ci,srch_co,is_package,date_time) %>%
+  mutate(mon=month(as.POSIXlt(date_time,format="%Y-%m-%d %H:%M:%S"))) %>%
+  mutate(Peakornot=ifelse(mon %in% c(6,7,8),"Peak",
+                          ifelse(mon %in% c(1,2),"NonPeak","Normal"))) %>%
+  mutate(date_diff=as.Date(as.character(srch_co),format="%Y-%m-%d")-
+           as.Date(as.character(srch_ci),format="%Y-%m-%d")) %>%
+  mutate(Longornot=ifelse(date_diff>3.11,"Long","Short"))
+test1<-test %>%
+  filter(is_package==1)
+test2<-test %>%
+  filter(is_package==0)
+t1<-table(test1$Peakornot,test1$Longornot)
+t2<-table(test2$Peakornot,test2$Longornot)
+round(prop.table(t1),3)
+round(prop.table(t2),3)
+```
+
+#Analysis 3
+```{r}
+Data %>%
+  group_by(hotel_country) %>%
+  summarise(count=sum(is_booking)) %>%
+  WorldMap(key="hotel_country",fill="count")
+```
+```{r}
+ver<-Data %>%
+  select(srch_destination_id,user_location_latitude,user_location_longitude,is_booking) %>%
+  left_join(Dest)
+ver<-ver%>%
+  select(srch_destination_latitude,srch_destination_longitude) %>%
+  filter(srch_destination_latitude!="NULL",srch_destination_longitude!="NULL") %>%
+  mutate(lat=as.numeric(srch_destination_latitude),long=as.numeric(srch_destination_longitude))
+statemap<-leaflet(ver) %>%
+  addTiles() %>%
+  addCircleMarkers(radius=2,color="red",opacity=.01)
+statemap
+```
+```{r}
+Data1<-test %>%
+  left_join(Dest)
+Data2<-Data1 %>%
+  filter(is_package==1,hotel_country=="UNITED STATES OF AMERICA",
+         srch_destination_latitude!="NULL",srch_destination_longitude!="NULL") %>%
+  mutate(lat=as.numeric(srch_destination_latitude),long=as.numeric(srch_destination_longitude)) %>%
+  group_by(is_package,Longornot,Peakornot,lat,long) %>%
+  summarise(freqUsage=.0002*n())
+```
+```{r}
+Data3<-Data1 %>%
+  filter(is_package==0,hotel_country=="UNITED STATES OF AMERICA",
+         srch_destination_latitude!="NULL",srch_destination_longitude!="NULL") %>%
+  mutate(lat=as.numeric(srch_destination_latitude),long=as.numeric(srch_destination_longitude)) %>%
+  group_by(is_package,Longornot,Peakornot,lat,long) %>%
+  summarise(freqUsage=.0002*n())
+```
+
+```{r}
+#pal<-colorFactor(c("navy","red",domain=c("Short","Long")))
+leaflet(Data2) %>%
+  addTiles() %>%
+  addCircleMarkers(radius=10,color=~ifelse(Data1$Longornot=="Short","orange","blue"),opacity=~freqUsage)# %>%
+  #addCircles(radius = ~ sum(Data1$is_package)/length(Data1)*100,color=~ifelse(Data1$Longornot=="Short","blue","red"), opacity = 0.0001)
+```
+
+```{r}
+leaflet(Data3) %>%
+  addTiles() %>%
+  addCircleMarkers(radius=4,color=~ifelse(Data1$Longornot=="Short","orange","blue"),opacity=~freqUsage)
+```
+
